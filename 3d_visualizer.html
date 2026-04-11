@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inverse Kinematics Visualizer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #ffffff;
+    --bg2:      #f5f4ef;
+    --bg3:      #eeede8;
+    --border:   rgba(0,0,0,0.12);
+    --border2:  rgba(0,0,0,0.22);
+    --txt:      #1a1a18;
+    --txt2:     #5f5e5a;
+    --txt3:     #9e9c94;
+    --success-bg:  #eaf3de;
+    --success-txt: #3b6d11;
+    --danger-bg:   #fcebeb;
+    --danger-txt:  #a32d2d;
+    --radius:   8px;
+    --radius-lg: 12px;
+    --blue:   #378ADD;
+    --amber:  #BA7517;
+    --teal:   #1D9E75;
+    --coral:  #D85A30;
+    --purple: #534AB7;
+    --red:    #E24B4A;
+    --green:  #639922;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:      #1e1e1c;
+      --bg2:     #2a2a27;
+      --bg3:     #333330;
+      --border:  rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+      --txt:     #e8e6de;
+      --txt2:    #a8a69e;
+      --txt3:    #6e6c64;
+      --success-bg:  #173404;
+      --success-txt: #97c459;
+      --danger-bg:   #501313;
+      --danger-txt:  #f09595;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    color: var(--txt);
+  }
+
+  #wrap {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 420px;
+    cursor: crosshair;
+    background: var(--bg2);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+  }
+
+  #status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--txt3);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: var(--radius);
+    font-weight: 500;
+  }
+  .badge-ok   { background: var(--success-bg); color: var(--success-txt); }
+  .badge-fail { background: var(--danger-bg);  color: var(--danger-txt);  }
+
+  #reach-info { font-size: 11px; color: var(--txt3); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat {
+    background: var(--bg2);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 11px; color: var(--txt3); margin-bottom: 4px; }
+  .stat-val   { font-size: 18px; font-weight: 500; color: var(--txt); }
+
+  #controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+  }
+
+  .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .row label {
+    font-size: 12px;
+    color: var(--txt2);
+    min-width: 32px;
+  }
+  .row input[type=range] {
+    flex: 1;
+    accent-color: var(--blue);
+  }
+  .row span {
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 40px;
+    text-align: right;
+    color: var(--txt);
+  }
+
+  #hint {
+    font-size: 11px;
+    color: var(--txt3);
+    padding-bottom: 4px;
+  }
+
+  .divider {
+    width: 0.5px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+
+  @media (max-width: 520px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    #controls  { grid-template-columns: 1fr; }
+    .divider   { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>Inverse kinematics visualizer</h1>
+
+  <canvas id="cv"></canvas>
+
+  <div id="status-row">
+    <span class="section-label">IK status</span>
+    <span id="badge" class="badge badge-ok">reachable</span>
+    <span id="reach-info"></span>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-label">Base servo</div><div class="stat-val" id="s-base">90°</div></div>
+    <div class="stat"><div class="stat-label">Shoulder servo</div><div class="stat-val" id="s-shoulder">90°</div></div>
+    <div class="stat"><div class="stat-label">Elbow servo</div><div class="stat-val" id="s-elbow">90°</div></div>
+    <div class="stat"><div class="stat-label">Roll servo</div><div class="stat-val" id="s-roll">0°</div></div>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <div class="section-label" style="margin-bottom:2px">Target position (mm)</div>
+      <div class="row">
+        <label>X</label>
+        <input type="range" id="rx" min="-380" max="380" step="1" value="180">
+        <span id="lx">180</span>
+      </div>
+      <div class="row">
+        <label>Y</label>
+        <input type="range" id="ry" min="-380" max="380" step="1" value="0">
+        <span id="ly">0</span>
+      </div>
+      <div class="row">
+        <label>Z</label>
+        <input type="range" id="rz" min="-100" max="380" step="1" value="120">
+        <span id="lz">120</span>
+      </div>
+      <div class="row">
+        <label>Roll</label>
+        <input type="range" id="rroll" min="-90" max="90" step="1" value="0">
+        <span id="lroll">0°</span>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="section-label" style="margin-bottom:2px">Arm config (mm)</div>
+      <div class="row">
+        <label>L1</label>
+        <input type="range" id="rL1" min="50" max="300" step="1" value="200">
+        <span id="lL1">200</span>
+      </div>
+      <div class="row">
+        <label>L2</label>
+        <input type="range" id="rL2" min="50" max="300" step="1" value="200">
+        <span id="lL2">200</span>
+      </div>
+      <div class="row">
+        <label>DX</label>
+        <input type="range" id="rDX" min="0" max="80" step="1" value="0">
+        <span id="lDX">0</span>
+      </div>
+      <div class="row">
+        <label>DZ</label>
+        <input type="range" id="rDZ" min="0" max="120" step="1" value="50">
+        <span id="lDZ">50</span>
+      </div>
+    </div>
+  </div>
+
+  <p id="hint">Click or drag on the canvas to move the target. Sliders update in real time.</p>
+</div>
+
+<script>
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+let state = { x:180, y:0, z:120, L1:200, L2:200, DX:0, DZ:50, roll:0 };
+
+// ── IK solver (matches Arduino ikArm exactly) ──────────────────────────────
+function ik(x, y, z, L1, L2, DX, DZ) {
+  const theta_base = Math.atan2(y, x);
+  const r_eff = Math.sqrt(x*x + y*y) - DX;
+  const z_eff = z - DZ;
+  const D = Math.sqrt(r_eff*r_eff + z_eff*z_eff);
+  if (D > (L1 + L2) || D < Math.abs(L1 - L2)) return null;
+  const cos_el = (L1*L1 + L2*L2 - D*D) / (2*L1*L2);
+  const theta_elbow = Math.PI - Math.acos(Math.max(-1, Math.min(1, cos_el)));
+  const phi = Math.atan2(z_eff, r_eff);
+  const cos_psi = (L1*L1 + D*D - L2*L2) / (2*L1*D);
+  const theta_shoulder = phi + Math.acos(Math.max(-1, Math.min(1, cos_psi)));
+  return { theta_base, theta_shoulder, theta_elbow, D };
+}
+
+function toDeg(r) { return r * 180 / Math.PI; }
+function servoAngle(rad) { return clamp(Math.round(toDeg(rad) + 90), 0, 180); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── Draw ───────────────────────────────────────────────────────────────────
+function draw() {
+  const W = cv.offsetWidth  || 800;
+  const H = cv.offsetHeight || 420;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width  = W * dpr;
+  cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const { x, y, z, L1, L2, DX, DZ, roll } = state;
+
+  const cs = getComputedStyle(document.documentElement);
+  const C = {
+    bg:     cs.getPropertyValue('--bg').trim(),
+    bg2:    cs.getPropertyValue('--bg2').trim(),
+    border: cs.getPropertyValue('--border').trim(),
+    txt:    cs.getPropertyValue('--txt').trim(),
+    txt2:   cs.getPropertyValue('--txt2').trim(),
+    txt3:   cs.getPropertyValue('--txt3').trim(),
+    blue:   cs.getPropertyValue('--blue').trim(),
+    amber:  cs.getPropertyValue('--amber').trim(),
+    teal:   cs.getPropertyValue('--teal').trim(),
+    coral:  cs.getPropertyValue('--coral').trim(),
+    red:    cs.getPropertyValue('--red').trim(),
+    green:  cs.getPropertyValue('--green').trim(),
+  };
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Origin
+  const OX = W * 0.25;
+  const OY = H * 0.78;
+
+  // Scale to fit max reach
+  const maxReach = L1 + L2 + 20;
+  const scale    = (H * 0.62) / maxReach;
+  const mm2px    = mm => mm * scale;
+  const sx       = mmx => OX + mm2px(mmx);
+  const sy       = mmz => OY - mm2px(mmz);
+
+  // ── Grid ──────────────────────────────────────────────────────────────────
+  const gridStep = 50;
+  ctx.strokeStyle = C.border;
+  ctx.lineWidth   = 0.5;
+  for (let g = -400; g <= 400; g += gridStep) {
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.moveTo(sx(g), 0); ctx.lineTo(sx(g), H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, sy(g)); ctx.lineTo(W, sy(g)); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Axes
+  ctx.strokeStyle = C.txt3; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke();
+  ctx.fillStyle = C.txt3;
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('+X', W - 20, sy(0) - 7);
+  ctx.fillText('+Z', sx(0) + 5, 14);
+  ctx.fillText('0', sx(0) + 4, sy(0) - 5);
+
+  // Grid number labels
+  ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+  for (let g = 50; g <= 350; g += 50) {
+    ctx.fillText(g, sx(g) - 8, sy(0) + 14);
+    ctx.fillText(g, sx(0) + 4, sy(g) + 3);
+    ctx.fillText(-g, sx(-g) - 14, sy(0) + 14);
+  }
+
+  // ── Workspace circles ─────────────────────────────────────────────────────
+  const maxR = mm2px(L1 + L2);
+  const minR = mm2px(Math.abs(L1 - L2));
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = C.blue; ctx.lineWidth = 1; ctx.globalAlpha = 0.2;
+  ctx.beginPath(); ctx.arc(OX, sy(DZ), maxR, 0, Math.PI * 2); ctx.stroke();
+  if (minR > 2) {
+    ctx.beginPath(); ctx.arc(OX, sy(DZ), minR, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  // ── IK solve (project Y into side view as r) ──────────────────────────────
+  const r_world = Math.sqrt(x * x + y * y);
+  const signX   = x < 0 ? -1 : 1;
+  const res     = ik(r_world, 0, z, L1, L2, DX, DZ);
+
+  // Target screen position
+  const tx = sx(r_world * signX);
+  const tz = sy(z);
+
+  const reachable = res !== null;
+
+  // Update badge
+  const badge = document.getElementById('badge');
+  badge.className = 'badge ' + (reachable ? 'badge-ok' : 'badge-fail');
+  badge.textContent = reachable ? 'reachable' : 'out of reach';
+
+  const D_val = Math.sqrt((r_world - DX) ** 2 + (z - DZ) ** 2);
+  document.getElementById('reach-info').textContent =
+    `D = ${Math.round(D_val)} mm  |  max = ${Math.round(L1 + L2)} mm`;
+
+  if (reachable) {
+    const { theta_base, theta_shoulder, theta_elbow } = res;
+
+    // Servo angles
+    const sBase     = servoAngle(theta_base);
+    const sShoulder = servoAngle(theta_shoulder);
+    const sElbow    = servoAngle(theta_elbow);
+    document.getElementById('s-base').textContent     = sBase + '°';
+    document.getElementById('s-shoulder').textContent = sShoulder + '°';
+    document.getElementById('s-elbow').textContent    = sElbow + '°';
+    document.getElementById('s-roll').textContent     = roll + '°';
+
+    // Joint screen positions
+    const elbowX = OX + mm2px(Math.cos(theta_shoulder) * L1) * signX;
+    const elbowY = sy(DZ) - mm2px(Math.sin(theta_shoulder) * L1);
+
+    const forearmAngle = theta_shoulder - theta_elbow;
+    const wristX = elbowX + mm2px(Math.cos(forearmAngle) * L2) * signX;
+    const wristY = elbowY - mm2px(Math.sin(forearmAngle) * L2);
+
+    // Drop shadow to ground
+    ctx.strokeStyle = C.txt3; ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]); ctx.globalAlpha = 0.18;
+    ctx.beginPath(); ctx.moveTo(wristX, sy(0)); ctx.lineTo(wristX, wristY); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+    // Upper arm (L1)
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = C.blue; ctx.lineWidth = 11; ctx.globalAlpha = 0.15;
+    ctx.beginPath(); ctx.moveTo(OX, sy(DZ)); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(OX, sy(DZ)); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+
+    // Forearm (L2)
+    ctx.strokeStyle = C.teal; ctx.lineWidth = 11; ctx.globalAlpha = 0.15;
+    ctx.beginPath(); ctx.moveTo(elbowX, elbowY); ctx.lineTo(wristX, wristY); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(elbowX, elbowY); ctx.lineTo(wristX, wristY); ctx.stroke();
+
+    // Shoulder arc
+    ctx.strokeStyle = C.amber; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(OX, sy(DZ), mm2px(30), -Math.PI, -(Math.PI - theta_shoulder) * signX, false);
+    ctx.stroke();
+
+    // Elbow arc
+    const elbowDir = Math.atan2(elbowY - sy(DZ), elbowX - OX);
+    ctx.strokeStyle = C.coral; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(elbowX, elbowY, mm2px(22), elbowDir, elbowDir + theta_elbow * signX, false);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Angle labels
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = C.amber;
+    ctx.fillText(Math.round(toDeg(theta_shoulder)) + '°', OX + mm2px(34) * signX, sy(DZ) - mm2px(10));
+    ctx.fillStyle = C.coral;
+    ctx.fillText(Math.round(toDeg(theta_elbow)) + '°', elbowX + mm2px(12) * signX, elbowY - mm2px(8));
+
+    // Link labels
+    ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = C.blue;
+    ctx.fillText('L1', (OX + elbowX) / 2 - 14, (sy(DZ) + elbowY) / 2 - 6);
+    ctx.fillStyle = C.teal;
+    ctx.fillText('L2', (elbowX + wristX) / 2 + 4 * signX, (elbowY + wristY) / 2 - 6);
+
+    // Joints
+    function joint(cx, cy, color, r) {
+      ctx.fillStyle = C.bg;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    joint(OX, sy(DZ), C.blue,  7);  // shoulder
+    joint(elbowX, elbowY, C.amber, 7);  // elbow
+    joint(wristX, wristY, C.teal,  8);  // wrist
+
+    // Gripper (roll indicator)
+    const rollRad = roll * Math.PI / 180;
+    const gr = mm2px(18);
+    ctx.strokeStyle = C.coral; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(wristX + Math.cos(rollRad - 0.45) * gr, wristY - Math.sin(rollRad - 0.45) * gr);
+    ctx.lineTo(wristX, wristY);
+    ctx.lineTo(wristX + Math.cos(rollRad + 0.45) * gr, wristY - Math.sin(rollRad + 0.45) * gr);
+    ctx.stroke();
+
+  } else {
+    // Ghost arm toward target
+    const angle = Math.atan2(z - DZ, r_world);
+    const ex = OX + mm2px(Math.cos(angle) * L1) * signX;
+    const ez = sy(DZ) - mm2px(Math.sin(angle) * L1);
+    ctx.strokeStyle = C.red; ctx.lineWidth = 3; ctx.globalAlpha = 0.3;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(OX, sy(DZ)); ctx.lineTo(ex, ez); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex, ez); ctx.lineTo(tx, tz); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+    document.getElementById('s-base').textContent     = '--';
+    document.getElementById('s-shoulder').textContent = '--';
+    document.getElementById('s-elbow').textContent    = '--';
+    document.getElementById('s-roll').textContent     = roll + '°';
+  }
+
+  // Base vertical connector
+  ctx.strokeStyle = C.border; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(OX, OY); ctx.lineTo(OX, sy(DZ)); ctx.stroke();
+
+  // Base joint
+  const bg2 = C.bg;
+  ctx.fillStyle = bg2;
+  ctx.beginPath(); ctx.arc(OX, OY, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = C.blue; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(OX, OY, 9, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = C.blue;
+  ctx.beginPath(); ctx.arc(OX, OY, 3.5, 0, Math.PI * 2); ctx.fill();
+
+  // DZ offset label
+  if (DZ > 0) {
+    ctx.strokeStyle = C.txt3; ctx.lineWidth = 0.8; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(OX + 18, OY); ctx.lineTo(OX + 18, sy(DZ)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.txt3; ctx.font = '10px sans-serif';
+    ctx.fillText('DZ=' + DZ, OX + 22, (OY + sy(DZ)) / 2 + 3);
+  }
+
+  // Target
+  ctx.fillStyle   = reachable ? C.green : C.red; ctx.globalAlpha = 0.9;
+  ctx.beginPath(); ctx.arc(tx, tz, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = reachable ? C.green : C.red; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(tx, tz, 12, 0, Math.PI * 2); ctx.stroke();
+
+  // Coord label
+  ctx.fillStyle = C.txt2; ctx.font = '11px sans-serif';
+  const labelX = tx + 16;
+  const labelY = tz - 5;
+  ctx.fillText(`(${Math.round(x)}, ${Math.round(y)}, ${Math.round(z)})`, labelX, labelY);
+
+  // View label
+  ctx.fillStyle = C.txt3; ctx.font = '11px sans-serif';
+  ctx.fillText('Side view — XZ plane  (Y projected as radius)', 10, H - 8);
+}
+
+// ── Sync sliders → state → draw ────────────────────────────────────────────
+function update() {
+  state.x    = +document.getElementById('rx').value;
+  state.y    = +document.getElementById('ry').value;
+  state.z    = +document.getElementById('rz').value;
+  state.L1   = +document.getElementById('rL1').value;
+  state.L2   = +document.getElementById('rL2').value;
+  state.DX   = +document.getElementById('rDX').value;
+  state.DZ   = +document.getElementById('rDZ').value;
+  state.roll = +document.getElementById('rroll').value;
+
+  document.getElementById('lx').textContent    = Math.round(state.x);
+  document.getElementById('ly').textContent    = Math.round(state.y);
+  document.getElementById('lz').textContent    = Math.round(state.z);
+  document.getElementById('lL1').textContent   = Math.round(state.L1);
+  document.getElementById('lL2').textContent   = Math.round(state.L2);
+  document.getElementById('lDX').textContent   = Math.round(state.DX);
+  document.getElementById('lDZ').textContent   = Math.round(state.DZ);
+  document.getElementById('lroll').textContent = Math.round(state.roll) + '°';
+
+  draw();
+}
+
+['rx','ry','rz','rL1','rL2','rDX','rDZ','rroll'].forEach(id => {
+  document.getElementById(id).addEventListener('input', update);
+});
+
+// ── Canvas click / drag ────────────────────────────────────────────────────
+let dragging = false;
+
+function canvasToWorld(e) {
+  const rect  = cv.getBoundingClientRect();
+  const cx    = (e.clientX ?? e.touches[0].clientX) - rect.left;
+  const cy    = (e.clientY ?? e.touches[0].clientY) - rect.top;
+  const W     = rect.width, H = rect.height;
+  const OX    = W * 0.25,   OY = H * 0.78;
+  const sc    = (H * 0.62) / (state.L1 + state.L2 + 20);
+  return {
+    x: Math.round((cx - OX) / sc),
+    z: Math.round((OY - cy) / sc)
+  };
+}
+
+function setFromCanvas(e) {
+  const { x, z } = canvasToWorld(e);
+  const xC = clamp(x, -380, 380);
+  const zC = clamp(z, -100, 380);
+  document.getElementById('rx').value = xC;
+  document.getElementById('rz').value = zC;
+  state.x = xC; state.z = zC;
+  document.getElementById('lx').textContent = xC;
+  document.getElementById('lz').textContent = zC;
+  draw();
+}
+
+cv.addEventListener('mousedown',  e => { dragging = true;  setFromCanvas(e); });
+cv.addEventListener('mousemove',  e => { if (dragging) setFromCanvas(e); });
+cv.addEventListener('mouseup',    () => { dragging = false; });
+cv.addEventListener('mouseleave', () => { dragging = false; });
+cv.addEventListener('touchstart', e => { dragging = true;  setFromCanvas(e); }, { passive: true });
+cv.addEventListener('touchmove',  e => { if (dragging) setFromCanvas(e); },    { passive: true });
+cv.addEventListener('touchend',   () => { dragging = false; });
+
+window.addEventListener('resize', update);
+update();
+</script>
+</body>
+</html>
