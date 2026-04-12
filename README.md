@@ -1,7 +1,4 @@
-Here’s a clean, professional README.md you can directly use for your GitHub repo. I’ve structured it like a proper project showcase (good for CV + hackathons + GitHub visibility).
 
-
----
 
 🤖 Robo-Limb: AI-Powered Supernumerary Robotic Arm
 
