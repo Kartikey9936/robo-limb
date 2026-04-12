@@ -90,7 +90,7 @@ Arduino / Microcontroller
 
 Servo Motors (MG995, MG996R, DS3225, HV2060MG)
 
-Ultrasonic Sensor / Camera Module
+Camera Module
 
 Power Supply (Battery + Buck Converter)
 
@@ -111,27 +111,6 @@ Serial Communication
 
 ---
 
-🔧 Project Structure
-
-robo-limb/
-│── computer_vision/
-│   ├── robolimb.py
-│   └── detection modules
-│
-│── hardware/
-│   ├── arduino_code.ino
-│   └── circuit diagrams
-│
-│── models/
-│   └── trained ML models
-│
-│── docs/
-│   └── project report / presentation
-│
-│── README.md
-
-
----
 
 ⚙️ Installation & Setup
 
@@ -159,73 +138,12 @@ python computer_vision/robolimb.py
 
 🔌 Hardware Setup
 
-Connect servo motors to Arduino PWM pins
-
-Connect camera to system (USB / ESP32-CAM)
-
-Use buck converter for stable power supply
-
-Ensure proper grounding between all components
 
 
 
 ---
 
-📊 Applications
 
-♿ Assistive technology for disabled individuals
-
-👴 Elderly care support
-
-🏥 Rehabilitation systems
-
-🏭 Industrial object handling
-
-🤖 Human augmentation systems
-
-
-
----
-
-📈 Future Improvements
-
-🔥 Real-time embedded AI (Edge AI)
-
-🧠 Advanced object recognition models
-
-📡 IoT integration
-
-🦾 More degrees of freedom (DoF)
-
-🎮 Mobile app control
-
-
-
----
-
-💰 Budget (Approx.)
-
-Component	Quantity	Cost (INR)
-
-Servo Motors	Multiple	~7000+
-Webcam	1	~1000
-Sensors	Multiple	~900
-Microcontroller	1	~500
-Others	—	~2000
-
-
-
----
-
-👨‍💻 Contributors
-
-Kartikey Kesharwani
-
-Team VIBHAV, NIT Hamirpur
-
-
-
----
 
 📜 License
 
